@@ -1,12 +1,12 @@
-from django.contrib.auth.models import AbstractUser
-from django.db import models
-from rest_framework_simplejwt.tokens import RefreshToken
-from datetime import timedelta
-from django.utils import timezone
 import uuid
+from datetime import timedelta
 import random
 
+from django.contrib.auth.models import AbstractUser, User
+from django.utils import timezone
+from rest_framework_simplejwt.tokens import RefreshToken
 from shared.models import BaseModel
+from django.db import models
 
 VIA_EMAIL, VIA_PHONE = "VIA_EMAIL", "VIA_PHONE"
 ORDINARY_USER, MANAGER, ADMIN = "ORDINARY_USER", "MANAGER", "ADMIN"
@@ -37,10 +37,12 @@ class UserModel(AbstractUser, BaseModel):
     user_role = models.CharField(max_length=128, choices=USER_ROLES, default=ORDINARY_USER)
 
     email = models.EmailField(null=True, blank=True)
-    password = models.ImageField(max_length=12)
+    phone_number = models.CharField(max_length=13, null=True, blank=True)
+    bio = models.TextField(null=True, blank=True)
+    avatar = models.ImageField(upload_to='avatars', null=True, blank=True)
 
     def __str__(self):
-        return self.first_name
+        return self.get_full_name()
 
     @property
     def full_name(self):
@@ -64,6 +66,17 @@ class UserModel(AbstractUser, BaseModel):
         if not self.password.startswith('pbkdf2_sha256'):
             self.set_password(self.password)
 
+    def clean(self):
+        self.check_username()
+        self.check_pass()
+        self.check_email()
+        self.hashing_password()
+
+    def save(self, *args, **kwargs):
+        if not self.pk:
+            self.clean()
+        super(UserModel, self).save(*args, **kwargs)
+
     def create_verify_code(self, verify_type):
         code = "".join([str(random.randint(1, 100) % 10) for _ in range(4)])
         ConfirmationModel.objects.create(
@@ -86,12 +99,12 @@ EMAIL_EXPIRATION_TIME = 4
 PHONE_EXPIRATION_TIME = 2
 
 
-class ConfirmationModel(models.Model):
+class ConfirmationModel(BaseModel):
     VERIFY_TYPES = (
         (VIA_EMAIL, VIA_EMAIL),
         (VIA_PHONE, VIA_PHONE)
     )
-    uuid = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
+
     verify_type = models.CharField(max_length=128, choices=VERIFY_TYPES, default=VIA_EMAIL)
     user = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name='verification_codes')
     expiration_time = models.DateField()

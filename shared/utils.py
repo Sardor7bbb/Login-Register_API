@@ -22,3 +22,21 @@ def send_code_to_email(email, code):
     thread.start()
 
     return True
+
+
+def send_code_to_phone(phone_number, code):
+    def send_in_thread():
+        account_sid = os.getenv('TWILIO_ID'),
+        auth_token = os.getenv('TWILIO_KEY'),
+        client = Client(account_sid, auth_token)
+
+        client.messages.create(
+            from_='+12073877090',
+            to=phone_number,
+            body=f"Your activation code is {code}"
+        )
+
+    thread = threading.Thread(target=send_in_thread)
+    thread.start()
+
+    return True

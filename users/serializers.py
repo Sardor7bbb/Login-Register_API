@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from shared.utils import send_code_to_email
+from shared.utils import send_code_to_email, send_code_to_phone
 from users.models import UserModel, VIA_EMAIL, VIA_PHONE
 
 
@@ -16,6 +16,10 @@ class SignUpSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserModel
         fields = ['uuid', 'auth_type', 'auth_status']
+
+    def validate(self, data):
+        data = self.auth_validate(data=data)
+        return data
 
     def create(self, validated_data):
         user = super(SignUpSerializer, self).create(validated_data)
@@ -69,8 +73,6 @@ class UpdateUserSerializer(serializers.ModelSerializer):
                 "message": "Passwords don't match"
             }
             raise serializers.ValidationError(response)
-
-        # todo | min 8 length, numbers and letters
         return data
 
     def validate_username(self, username):
